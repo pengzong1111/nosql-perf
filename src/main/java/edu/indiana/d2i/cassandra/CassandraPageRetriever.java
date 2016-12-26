@@ -18,8 +18,9 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 
-import edu.indiana.d2i.cassandra.tools.Configuration;
-import edu.indiana.d2i.cassandra.tools.Tools;
+import edu.indiana.d2i.nosql.Retriever;
+import edu.indiana.d2i.tools.Configuration;
+import edu.indiana.d2i.tools.Tools;
 
 public class CassandraPageRetriever extends Retriever{
 	private static Logger logger = LogManager.getLogger(CassandraVolumeRetriever.class);
@@ -62,7 +63,7 @@ public class CassandraPageRetriever extends Retriever{
 	}
 	public void retrieve(List<String> volumesToRetrieve) {
 		
-		List<String> pageSequences = Arrays.asList(Configuration.getProperty("PAGE_SEQUENCES").split(","));
+		List<String> pageSequences = Tools.generateSequences(10); //Arrays.asList(Configuration.getProperty("PAGE_SEQUENCES").split(","));
 
 		if (volumesToRetrieve == null || volumesToRetrieve.isEmpty()) {
 			System.out.println("volume list is empty or null");

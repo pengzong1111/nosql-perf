@@ -23,13 +23,13 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 
-import edu.indiana.d2i.cassandra.tools.Configuration;
-import edu.indiana.d2i.cassandra.tools.Constants;
-import edu.indiana.d2i.cassandra.tools.CopyrightEnum;
-import edu.indiana.d2i.cassandra.tools.METSParser;
-import edu.indiana.d2i.cassandra.tools.METSParser.VolumeRecord;
-import edu.indiana.d2i.cassandra.tools.METSParser.VolumeRecord.PageRecord;
-import edu.indiana.d2i.cassandra.tools.Tools;
+import edu.indiana.d2i.tools.Configuration;
+import edu.indiana.d2i.tools.Constants;
+import edu.indiana.d2i.tools.CopyrightEnum;
+import edu.indiana.d2i.tools.METSParser;
+import edu.indiana.d2i.tools.Tools;
+import edu.indiana.d2i.tools.METSParser.VolumeRecord;
+import edu.indiana.d2i.tools.METSParser.VolumeRecord.PageRecord;
 
 /**
  * this is for data model 2 that store pages as a zip file

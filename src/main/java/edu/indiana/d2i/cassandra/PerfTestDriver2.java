@@ -6,8 +6,9 @@ import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.util.List;
 
-import edu.indiana.d2i.cassandra.tools.Configuration;
-import edu.indiana.d2i.cassandra.tools.Tools;
+import edu.indiana.d2i.nosql.Retriever;
+import edu.indiana.d2i.tools.Configuration;
+import edu.indiana.d2i.tools.Tools;
 
 public class PerfTestDriver2 {
 
@@ -51,7 +52,7 @@ public class PerfTestDriver2 {
 		
 		boolean running = true;
 		
-		long timeIntervalInSec = 2;
+		long timeIntervalInSec = 4;
 		int i=0;
 		while(running) {
 			

@@ -11,8 +11,8 @@ import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.exceptions.WriteTimeoutException;
 
-import edu.indiana.d2i.cassandra.tools.Configuration;
-import edu.indiana.d2i.cassandra.tools.METSParser.VolumeRecord.PageRecord;
+import edu.indiana.d2i.tools.Configuration;
+import edu.indiana.d2i.tools.METSParser.VolumeRecord.PageRecord;
 
 public class CassandraManager {
 
@@ -72,6 +72,7 @@ public class CassandraManager {
 		int maxAttempts = 3;
 		while(/*!executed &&*/ maxAttempts > 0) {
 			try{
+				boundStatement.setReadTimeoutMillis(20000);
 				ResultSet results = session.execute(boundStatement);
 				//executed = true;
 				return results;

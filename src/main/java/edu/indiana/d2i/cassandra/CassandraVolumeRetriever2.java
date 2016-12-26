@@ -14,6 +14,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.datastax.driver.core.BoundStatement;
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
@@ -21,8 +22,9 @@ import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 
-import edu.indiana.d2i.cassandra.tools.Configuration;
-import edu.indiana.d2i.cassandra.tools.Tools;
+import edu.indiana.d2i.nosql.Retriever;
+import edu.indiana.d2i.tools.Configuration;
+import edu.indiana.d2i.tools.Tools;
 
 public class CassandraVolumeRetriever2 extends Retriever {
 	private static Logger logger = LogManager.getLogger(CassandraVolumeRetriever2.class);
@@ -77,49 +79,46 @@ public class CassandraVolumeRetriever2 extends Retriever {
 		
 		Statement select = null;
 		if(volumesToRetrieve.size() == 1) {
-			select = QueryBuilder.select().column("volumeid")./*column("sequence").*//*column("mets").*/column("zippedcontent").column("bytecount").from(Configuration.getProperty("KEY_SPACE"), columnFamilyName).where(QueryBuilder.eq("volumeid", volumesToRetrieve.get(0)));
+			select = QueryBuilder.select()/*.column("volumeid")*/./*column("sequence").*//*column("mets").*/column("zippedcontent")/*.column("bytecount")*/.from(Configuration.getProperty("KEY_SPACE"), columnFamilyName).where(QueryBuilder.eq("volumeid", volumesToRetrieve.get(0))).setConsistencyLevel(ConsistencyLevel.ONE);
 		} else {
-			select = QueryBuilder.select().column("volumeid")/*.column("sequence")*//*.column("mets")*/.column("zippedcontent").column("bytecount").from(Configuration.getProperty("KEY_SPACE"), columnFamilyName).where(QueryBuilder.in("volumeid", volumesToRetrieve));
+			select = QueryBuilder.select()/*.column("volumeid")*//*.column("sequence")*//*.column("mets")*/.column("zippedcontent")/*.column("bytecount")*/.from(Configuration.getProperty("KEY_SPACE"), columnFamilyName).where(QueryBuilder.in("volumeid", volumesToRetrieve)).setConsistencyLevel(ConsistencyLevel.ONE);
 		}
 	//	System.out.println(select.toString());
 		System.out.printf("start reading %d volumes \n", volumesToRetrieve.size());
-		select.setFetchSize(20);
-		long t0 = System.currentTimeMillis();
+		select.setFetchSize(30);
 		
-		ResultSet resultSet = retrieveVolumes(select);
-		
-		boolean fetchInSingleBatch = Boolean.parseBoolean(Configuration.getProperty("FETCH_IN_SINGLE_BATCH"));
-		Iterator<Row> iter = null;
-		/*if(fetchInSingleBatch) {
-			iter = resultSet.all().iterator();
-		} else {*/
-			iter = resultSet.iterator();
-	//	}
-	 
-	//	resultSet.all()
 		System.out.println("========start========");
 		long bytes = 0;
 		long volumes = 0;
+		long t0 = System.currentTimeMillis();
+		ResultSet resultSet = retrieveVolumes(select);
+	//	boolean fetchInSingleBatch = Boolean.parseBoolean(Configuration.getProperty("FETCH_IN_SINGLE_BATCH"));
+		Iterator<Row> iter = resultSet.iterator(); 
+	//	resultSet.all()
 		while (iter.hasNext()) {
 		//	System.out.println("========");
 			Row row = iter.next();
-			bytes += row.getLong("bytecount");
-			byteCount.addAndGet(row.getLong("bytecount"));
+		//	ByteBuffer zippedContent = row.getBytes("zippedcontent");
+			bytes += row.getBytes("zippedcontent").array().length;
+		//	System.out.println("bytebuffer size: " + zippedContent.array().length + " byteCount: " + row.getLong("bytecount"));
+			//bytes += row.getLong("bytecount");
+		//	byteCount.addAndGet(row.getLong("bytecount"));
 	//		String volId = row.getString("volumeid");
 		//	System.out.println(volId);
 			volumes++;
-			volumeCount.incrementAndGet();
+		//	volumeCount.incrementAndGet();
 			
 			/*ByteBuffer mets = row.getBytes("mets");
 			ByteBuffer zip = row.getBytes("zippedcontent");
 			writeToFile(mets, ".xml", volId);
 			writeToFile(zip, ".zip", volId);*/
 		}
+		long t1 = System.currentTimeMillis();
 		System.out.println("========end========");
 		System.out.println(resultSet.toString());
-		long t1 = System.currentTimeMillis();
+		
 		System.out.println("retrieving time: " + (t1 - t0) + " for " + volumes + " volumes, " + bytes + " bytes.");
-		statsWriter.println(volumesToRetrieve.size() + "\t" + bytes + "\t" + (t1 - t0) + "\t" + fetchInSingleBatch);
+		statsWriter.println(volumesToRetrieve.size() + "\t" + bytes + "\t" + (t1 - t0) + "\t" + false);
 
 	}
 	private void writeToFile(ByteBuffer byteBuffer, String fileSuffix, String volId) {

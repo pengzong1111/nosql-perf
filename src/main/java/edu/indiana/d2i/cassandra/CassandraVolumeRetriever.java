@@ -18,8 +18,9 @@ import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 
-import edu.indiana.d2i.cassandra.tools.Configuration;
-import edu.indiana.d2i.cassandra.tools.Tools;
+import edu.indiana.d2i.nosql.Retriever;
+import edu.indiana.d2i.tools.Configuration;
+import edu.indiana.d2i.tools.Tools;
 
 public class CassandraVolumeRetriever extends Retriever {
 	private static Logger logger = LogManager.getLogger(CassandraVolumeRetriever.class);

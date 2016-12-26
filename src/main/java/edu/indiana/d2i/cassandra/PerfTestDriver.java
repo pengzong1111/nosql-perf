@@ -6,8 +6,9 @@ import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.util.List;
 
-import edu.indiana.d2i.cassandra.tools.Configuration;
-import edu.indiana.d2i.cassandra.tools.Tools;
+import edu.indiana.d2i.nosql.Retriever;
+import edu.indiana.d2i.tools.Configuration;
+import edu.indiana.d2i.tools.Tools;
 
 public class PerfTestDriver {
 

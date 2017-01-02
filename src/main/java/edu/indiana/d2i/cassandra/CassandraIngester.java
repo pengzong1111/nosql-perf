@@ -6,15 +6,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamException;
 
 import com.datastax.driver.core.BatchStatement;
 import com.datastax.driver.core.BoundStatement;
@@ -22,8 +19,6 @@ import com.datastax.driver.core.PreparedStatement;
 
 import edu.indiana.d2i.tools.Configuration;
 import edu.indiana.d2i.tools.Constants;
-import edu.indiana.d2i.tools.CopyrightEnum;
-import edu.indiana.d2i.tools.METSParser;
 import edu.indiana.d2i.tools.Tools;
 import edu.indiana.d2i.tools.METSParser.VolumeRecord;
 import edu.indiana.d2i.tools.METSParser.VolumeRecord.PageRecord;

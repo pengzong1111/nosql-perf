@@ -25,11 +25,11 @@ import edu.indiana.d2i.tools.Tools;
 import edu.indiana.d2i.tools.METSParser.VolumeRecord;
 import edu.indiana.d2i.tools.METSParser.VolumeRecord.PageRecord;
 
-public class MongodbIngester {
+public class MongodbEmbededIngester {
 	private static PrintWriter pw;
 	private static PrintWriter pw2;
 	private static MongoCollection<Document> volumeCollection;
-	private static MongoCollection<Document> pageCollection; 
+//	private static MongoCollection<Document> pageCollection; 
 	private static List<Document> docs;
 	private static int DOCS_SIZE = 20;
 	static {
@@ -43,7 +43,7 @@ public class MongodbIngester {
 		}
 		
 		volumeCollection = MongodbManager.getCollection(MongodbManager.VOLUME_COLLECTION);
-		pageCollection = MongodbManager.getCollection(MongodbManager.PAGE_COLLECTION);
+	//	pageCollection = MongodbManager.getCollection(MongodbManager.PAGE_COLLECTION);
 	}
 	
 	public boolean ingestPages(String id) {
@@ -59,8 +59,23 @@ public class MongodbIngester {
 		 *  e.g.: /hathitrustmnt/silvermaple/ingester-data/full_set/loc/pairtree_root/ar/k+/=1/39/60/=t/8h/d8/d9/4r/ark+=13960=t8hd8d94r/ark+=13960=t8hd8d94r.zip
 		 *  /hathitrustmnt/silvermaple/ingester-data/full_set/loc/pairtree_root/ar/k+/=1/39/60/=t/8h/d8/d9/4r/ark+=13960=t8hd8d94r/ark+=13960=t8hd8d94r.mets.xml
 		 */
-		File volumeZipFile = Tools.getFileFromPairtree(pairtreePath, zipFileName);
-		File volumeMetsFile = Tools.getFileFromPairtree(pairtreePath, metsFileName);
+		File volumeZipFile = null;
+		File volumeMetsFile = null;
+		if(edu.indiana.d2i.tools.Configuration.getProperty("SOURCE").equalsIgnoreCase("pairtree")) {
+			volumeZipFile = Tools.getFileFromPairtree(pairtreePath, zipFileName);
+			volumeMetsFile = Tools.getFileFromPairtree(pairtreePath, metsFileName);
+		} else {
+			String commonPath = "/home/zongpeng/data";
+			for(int i = 0; i < 6; i ++) {
+				File volumeDir = new File(commonPath + i + "/" + cleanIdPart);
+				if(volumeDir.exists()) {
+					volumeZipFile = new File(volumeDir, zipFileName);
+					volumeMetsFile = new File(volumeDir, metsFileName);
+					break;
+				}
+			}
+		}
+		
 		if(volumeZipFile == null || volumeMetsFile == null || !volumeZipFile.exists() || !volumeMetsFile.exists()) {
 			System.out.println("zip file or mets file does not exist for " + id);
 			return false;
@@ -76,15 +91,17 @@ public class MongodbIngester {
 	private boolean updatePages(File volumeZipFile, VolumeRecord volumeRecord) {
 		String volumeId = volumeRecord.getVolumeID();
 		Document volumeDoc = new Document("_id", volumeId).append("accessLevel", 1).append("language", "English");
-		ArrayList<String> sequenceList = new ArrayList<String>();
-		volumeDoc.append("pages", sequenceList);
-		List<Document> pageDocs = new LinkedList<Document>();
+		//ArrayList<String> sequenceList = new ArrayList<String>();
+		//volumeDoc.append("pages", sequenceList);
+	//	List<BasicDBObject> pageDocs = new LinkedList<BasicDBObject>();
+		//BasicDBObject pageDocs = new BasicDBObject();
+		//volumeDoc.append("pages", pageDocs);
 		boolean volumeAdded = false;
 		try {
 			ZipInputStream zis = new ZipInputStream(new FileInputStream(volumeZipFile));
 			ZipEntry zipEntry = null;
 			while((zipEntry = zis.getNextEntry()) != null) {
-				Document pageDoc = new Document();
+			//	BasicDBObject pageDoc = new BasicDBObject();
 				String entryName = zipEntry.getName();
 				String entryFilename = extractEntryFilename(entryName);
 				PageRecord pageRecord = volumeRecord.getPageRecordByFilename(entryFilename);
@@ -134,13 +151,18 @@ public class MongodbIngester {
                     pageRecord.setCharacterCount(pageContentsString.length());
 					
 					//6. push page content into mongodb document
-                    updatePage(pageDoc, pageRecord, volumeId, pageContentsString);
-                    pageDocs.add(pageDoc);
-                    sequenceList.add(pageRecord.getSequence());
+                    updatePage(volumeDoc, pageRecord, volumeId, pageContentsString);
+                 //   pageDocs.add(pageDoc);
+               //    sequenceList.add(pageRecord.getSequence());
 				}
 			}
-			pageCollection.insertMany(pageDocs);
-			volumeCollection.insertOne(volumeDoc);
+			try {
+				volumeCollection.insertOne(volumeDoc);
+			} catch(org.bson.BsonSerializationException e) {
+				pw2.println(volumeId + " is over sized");
+				System.out.println(e);
+				return false;
+			}
 			zis.close();
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
@@ -154,14 +176,16 @@ public class MongodbIngester {
 		return volumeAdded;
 	}
 
-	private void updatePage(Document pageDoc, PageRecord pageRecord, String volumeId, String pageContent) {
-		pageDoc.append("_id", volumeId+"#"+pageRecord.getSequence()).append("volumeId", volumeId).append("sequence", pageRecord.getSequence()).append("byteCount", pageRecord.getByteCount()).append("characterCount", pageRecord.getCharacterCount())
+	private void updatePage(Document volumeDoc, PageRecord pageRecord, String volumeId, String pageContent) {
+		BasicDBObject pageDoc = new BasicDBObject();
+		pageDoc./*append("_id", volumeId+"#"+pageRecord.getSequence()).append("volumeId", volumeId).append("sequence", pageRecord.getSequence()).*/append("byteCount", pageRecord.getByteCount()).append("characterCount", pageRecord.getCharacterCount())
 				.append("contents", pageContent).append("checksum", pageRecord.getChecksum()).append("checksumType", pageRecord.getChecksumType())
 				.append("pageNumberLabel", pageRecord.getLabel());
+		volumeDoc.append(pageRecord.getSequence(), pageDoc);
 	}
 
 	public static void main(String[] args) {
-		MongodbIngester ingester = new MongodbIngester();
+		MongodbEmbededIngester ingester = new MongodbEmbededIngester();
 		List<String> volumesToIngest = Tools.getVolumeIds(new File(Configuration.getProperty("VOLUME_ID_LIST")));
 		if(volumesToIngest == null || volumesToIngest.isEmpty()) {
 			System.out.println("volume list is empty or null");

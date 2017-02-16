@@ -1,0 +1,25 @@
+<configuration>
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hbase.rootdir</name>
+   <!-- <value>file:///home/zongpeng/hbase/hbase-1.2.4/data/hbase</value> -->
+    <value>hdfs://crow.soic.indiana.edu:9000/hbase</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.quorum</name>
+    <value>crow.soic.indiana.edu,vireo.soic.indiana.edu,pipit.soic.indiana.edu</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.property.dataDir</name>
+    <value>/home/zongpeng/hbase/zookeeper-3.4.9/data</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.property.clientPort</name>
+    <value>2181</value>
+    <description>Property from ZooKeeper's config zoo.cfg.
+    The port at which the clients will connect.</description>
+  </property>
+</configuration>

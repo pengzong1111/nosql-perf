@@ -211,6 +211,9 @@ public class Tools {
 	}
 	
 	public static void main(String[] args) {
-		System.out.println(generateSequences(10));
+		String volumeId = "loc.ark:/13960/t7kp9549h";
+	
+		String pairtreePath = Tools.getPairtreePath(volumeId);
+		System.out.println(pairtreePath);
 	}
 }

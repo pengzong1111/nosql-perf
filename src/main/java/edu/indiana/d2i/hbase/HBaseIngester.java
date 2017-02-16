@@ -1,4 +1,4 @@
-package edu.indiana.d2i.cassandra;
+package edu.indiana.d2i.hbase;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -8,75 +8,83 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import com.datastax.driver.core.BatchStatement;
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.exceptions.WriteFailureException;
-import com.datastax.driver.core.querybuilder.Insert;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.MasterNotRunningException;
+import org.apache.hadoop.hbase.ZooKeeperConnectionException;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.util.Bytes;
 
-import edu.indiana.d2i.tools.Configuration;
 import edu.indiana.d2i.tools.Constants;
 import edu.indiana.d2i.tools.Tools;
 import edu.indiana.d2i.tools.METSParser.VolumeRecord;
 import edu.indiana.d2i.tools.METSParser.VolumeRecord.PageRecord;
 
 
-public class CassandraIngester {
+public class HBaseIngester {
 	private static PrintWriter pw;
 	private static PrintWriter pw2;
-	private static CassandraManager cassandraManager;
-//	private static PreparedStatement insertStatement;
-	private static String columnFamilyName;
-//	private static BatchUpdater batchUpdater;
-	private static boolean batchUpdate;
+	
+	private static Configuration conf = null;
+	private HBaseAdmin hbaseAdmin = null;
+	private HTable table = null;
+	private static String tableName = edu.indiana.d2i.tools.Configuration.getProperty("HBASE_TABLE_NAME");
+	private static String ZOOKEEPER_QUORUM = edu.indiana.d2i.tools.Configuration.getProperty("ZOOKEEPER_QUORUM");
 	static {
 		try {
-			pw = new PrintWriter("ingested.txt");
-			pw2 = new PrintWriter("failed.txt");
+			pw = new PrintWriter("ingested-hbase.txt");
+			pw2 = new PrintWriter("failed-hbase.txt");
+			conf = HBaseConfiguration.create();
+	        conf.set("hbase.zookeeper.quorum", ZOOKEEPER_QUORUM/*"crow.soic.indiana.edu,vireo.soic.indiana.edu,pipit.soic.indiana.edu"*/);
+	        conf.set("hbase.zookeeper.property.clientPort", "2181");
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-		cassandraManager = CassandraManager.getInstance();
-		columnFamilyName = Configuration.getProperty("VOLUME_COLUMN_FAMILY");
-		//create column family
-				if(! checkTableExist(columnFamilyName)) {
-					String createTableStr = "CREATE TABLE " + columnFamilyName + " ("
-				    		+ "volumeID text, "
-							+ "accessLevel int static, "
-				    		+ "language text static, "
-							//+ "mets text static,"
-				    		+ "volumeByteCount bigint static, "
-							+ "volumeCharacterCount int static, "
-				    		+ "sequence text, "
-				    		+ "byteCount bigint, "
-				    		+ "characterCount int, "
-				    		+ "contents text, "
-				    		+ "checksum text, "
-				    		+ "checksumType text, "
-				    		+ "pageNumberLabel text, "
-				    		+ "PRIMARY KEY (volumeID, sequence))";
-					cassandraManager.execute(createTableStr);
-				}
-	//	insertStatement = cassandraManager.prepare("INSERT INTO " + columnFamilyName + " (volumeID, sequence, byteCount, characterCount, contents, checksum, checksumType, pageNumberLabel)" + "VALUES(?,?,?,?,?,?,?,?);");
-		
-		/*batchUpdate = Boolean.parseBoolean(Configuration.getProperty("BATCH_UPDATE"));
-		if(batchUpdate) {
-			batchUpdater = new BatchUpdater();
-		}*/
+		} 
 	}
 	
+	public HBaseIngester() {
+		try {
+			 this.hbaseAdmin = new HBaseAdmin(conf);
+			 this.table = new HTable(conf, tableName);
+		} catch (MasterNotRunningException e) {
+			e.printStackTrace();
+		} catch (ZooKeeperConnectionException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public static void main(String[] args) {
-		CassandraIngester ingester = new CassandraIngester();
-		
+		HBaseIngester ingester = new HBaseIngester();
+		if(!ingester.checkTableExist(tableName)) {
+			HTableDescriptor tableDesc = new HTableDescriptor(edu.indiana.d2i.tools.Configuration.getProperty("HBASE_TABLE_NAME"));
+            for (int i = 0; i < columnFamilies.length; i++) {
+                tableDesc.addFamily(new HColumnDescriptor(columnFamilies[i]));
+            }
+            try {
+				ingester.createTable(tableDesc);
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.out.println("error creating table" + tableName + " : " + e.getMessage());
+				return;
+			}
+            System.out.println("create table " + tableName + " ok.");
+		} else {
+			System.out.println(edu.indiana.d2i.tools.Configuration.getProperty("HBASE_TABLE_NAME") + " already exists");
+		}
 		//add several volumes into VOLUME_COLUMN_FAMILY
 		
-		List<String> volumesToIngest = Tools.getVolumeIds(new File(Configuration.getProperty("VOLUME_ID_LIST")));
+		List<String> volumesToIngest = Tools.getVolumeIds(new File(edu.indiana.d2i.tools.Configuration.getProperty("VOLUME_ID_LIST")));
 		if(volumesToIngest == null || volumesToIngest.isEmpty()) {
 			System.out.println("volume list is empty or null");
 			return;
@@ -89,6 +97,8 @@ public class CassandraIngester {
 				pw.println(id);pw.flush();
 				ingester.ingestMetadata(id);
 			//	System.out.println(id + " metadata ingested");
+			} else {
+				pw2.println(id); pw2.flush();
 			}
 		}
 		ingester.close();
@@ -96,10 +106,14 @@ public class CassandraIngester {
 		pw.flush();pw.close(); pw2.flush();pw2.close();
 		System.out.println("done");
 		System.out.println("time elapsed in millisecond: " + (t1 - t0));
-		cassandraManager.shutdown();
+		ingester.close();
 	}
 
 //	private void ingest() {}
+
+	private void createTable(HTableDescriptor tableDesc) throws IOException {
+		hbaseAdmin.createTable(tableDesc);
+	}
 
 	private void close() {
 		/*if(batchUpdater != null) {
@@ -108,8 +122,13 @@ public class CassandraIngester {
 		
 	}
 
-	private static boolean checkTableExist(String tableName) {
-		return cassandraManager.checkTableExist(tableName);
+	private boolean checkTableExist(String tableName) {
+		try {
+			return hbaseAdmin.tableExists(tableName);
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		}
 	}
 	
 	private void ingestMetadata(String id) {
@@ -133,7 +152,7 @@ public class CassandraIngester {
 		 */
 		File volumeZipFile = null;
 		File volumeMetsFile = null;
-		if(Configuration.getProperty("SOURCE").equalsIgnoreCase("pairtree")) {
+		if(edu.indiana.d2i.tools.Configuration.getProperty("SOURCE").equalsIgnoreCase("pairtree")) {
 			volumeZipFile = Tools.getFileFromPairtree(pairtreePath, zipFileName);
 			volumeMetsFile = Tools.getFileFromPairtree(pairtreePath, metsFileName);
 		} else {
@@ -160,19 +179,19 @@ public class CassandraIngester {
 		return volumeAdded;
 	}
 
+	//language, accessLevel, etc for volumeMetadata
+	private static String[] columnFamilies = {"contents", "byteCount", "characterCount", "checksum", "pagenumberlabel", "volumeMetadata"};
 	private boolean updatePages(File volumeZipFile, VolumeRecord volumeRecord) {
 		String volumeId = volumeRecord.getVolumeID();
 		HashMap<String, List<String>> featuredPagesMap = new HashMap<String, List<String>>(); // feature maps to a list of page seqs
-		
+		//List<Put> puts = new LinkedList<Put>();
+		Put put = new Put(Bytes.toBytes(volumeId));
 		boolean volumeAdded = false;
-		
 		boolean hasValidPage = false;
-		BatchStatement batchStmt = new BatchStatement();
 		try {
 			long volumeByteCount = 0;
 			long volumeCharacterCount = 0;
 			int i=0;
-			Insert firstPageInsert = null;
 			ZipInputStream zis = new ZipInputStream(new FileInputStream(volumeZipFile));
 			ZipEntry zipEntry = null;
 			while((zipEntry = zis.getNextEntry()) != null) {
@@ -227,59 +246,68 @@ public class CassandraIngester {
                     pageRecord.setCharacterCount(pageContentsString.length());
                     volumeCharacterCount += pageContentsString.length();
 					//6. push page content into cassandra
-               //     updatePage(volumeId, pageRecord, pageContentsString);
-                    /*if(batchUpdate) {
-                    	batchUpdater.updatePage(volumeId, pageRecord, pageContentsString);
-                    } else {
-                    	updatePage(volumeId, pageRecord, pageContentsString);
+                    
+                    try{
+                    	put.addColumn(Bytes.toBytes("contents"), Bytes.toBytes(pageRecord.getSequence()), Bytes
+                                .toBytes(pageContentsString));
+                    } catch(NullPointerException e) {
+                    	System.out.println("null contents");
                     }
                     
-					hasValidPage = true;*/
+                    put.addColumn(Bytes.toBytes("byteCount"), Bytes.toBytes(pageRecord.getSequence()), Bytes
+                            .toBytes(pageRecord.getByteCount()));
+                    put.addColumn(Bytes.toBytes("characterCount"), Bytes.toBytes(pageRecord.getSequence()), Bytes
+                            .toBytes(pageRecord.getCharacterCount()));
+                    try {
+                    	put.addColumn(Bytes.toBytes("checksum"), Bytes.toBytes(pageRecord.getSequence()), Bytes
+                                .toBytes(pageRecord.getChecksum()));
+                    } catch (NullPointerException e) {
+                    	System.out.println("null checksum");
+                    }
+                    try {
+                    	put.addColumn(Bytes.toBytes("pagenumberlabel"), Bytes.toBytes(pageRecord.getSequence()), Bytes
+                                .toBytes(pageRecord.getLabel()));
+                    } catch (NullPointerException e) {
+                    	System.out.println("null pagenumberlabel");
+                    }
                     
-              /*  	+ "sequence text, "
-		    		+ "byteCount bigint, "
-		    		+ "characterCount int, "
-		    		+ "contents text, "
-		    		+ "checksum text, "
-		    		+ "checksumType text, "
-		    		+ "pageNumberLabel text, "
-		    		+ "PRIMARY KEY (volumeID, sequence))";*/
-					Insert insertStmt = QueryBuilder
-							.insertInto(columnFamilyName);
-					insertStmt
-							.value("volumeID", volumeId)
-							.value("sequence", pageRecord.getSequence())
-							.value("byteCount", pageRecord.getByteCount())
-							.value("characterCount",
-									pageRecord.getCharacterCount())
-							.value("contents", pageContentsString)
-							.value("checksum", pageRecord.getChecksum())
-							.value("checksumType", pageRecord.getChecksumType())
-							.value("pageNumberLabel", pageRecord.getLabel());
-					batchStmt.add(insertStmt);
 					if(i == 0) {
-						firstPageInsert = insertStmt;
+						try {
+							put.addColumn(Bytes.toBytes("checksum"), Bytes.toBytes("type"), Bytes
+		                            .toBytes(pageRecord.getChecksumType()));
+						} catch(NullPointerException e) {
+							System.out.println("null checksumtype");
+						}
+						
 					}
 					i++;
 				}
 			}
 			zis.close();
-			if (firstPageInsert != null) {
-				firstPageInsert.value("accessLevel", i % 4)
-						.value("language", languages[i % languages.length])
-						.value("volumeByteCount", volumeByteCount)
-						.value("volumeCharacterCount", volumeCharacterCount);
-			}
-			cassandraManager.execute(batchStmt);
+			
+			put.addColumn(Bytes.toBytes("volumeMetadata"), Bytes.toBytes("language"), Bytes
+                    .toBytes(languages[i % languages.length]));
+			put.addColumn(Bytes.toBytes("volumeMetadata"), Bytes.toBytes("accessLevel"), Bytes
+                    .toBytes(i%4));
+			put.addColumn(Bytes.toBytes("volumeMetadata"), Bytes.toBytes("volumeByteCount"), Bytes
+                    .toBytes(volumeByteCount));
+			put.addColumn(Bytes.toBytes("volumeMetadata"), Bytes.toBytes("volumeCharacterCount"), Bytes
+                    .toBytes(volumeByteCount));
+			
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
 			//log.error("IOException getting entry from ZIP " + volumeZipPath, e);
 			System.out.println("IOException getting entry from ZIP " + volumeZipFile.getAbsolutePath());
-		} catch (WriteFailureException e) {
-			System.out.println("write failure for " + volumeId + ": " + e.getMessage());
-		}
-		 System.out.println("Successfully pushed all pages for volume " + volumeId);
+		} 
+		
+		try {
+			table.put(put);
+		} catch (IOException e) {
+			System.out.println("error adding volume " + volumeId + ", " + e.getMessage());
+			return false;
+		} 
+		System.out.println("Successfully pushed all pages for volume " + volumeId);
 		 
 		 volumeAdded = true;
 		return volumeAdded;
@@ -342,31 +370,21 @@ public class CassandraIngester {
         
     }
 
-    /*public static class BatchUpdater {
-
-		int batchSize = Integer.parseInt(Configuration.getProperty("BATCH_SIZE"));
-		int batch = batchSize;
-		BatchStatement batchStatement = new BatchStatement();
-
-		public void updatePage(String volumeId, PageRecord pageRecord, String pageContentsString) {
-			BoundStatement boundStatement = new BoundStatement(insertStatement);
-			if (batch > 0) {
-				batchStatement.add(boundStatement.bind(volumeId, pageRecord.getSequence(), pageRecord.getByteCount(), pageRecord.getCharacterCount(), pageContentsString, pageRecord.getChecksum(),
-						pageRecord.getChecksumType(), pageRecord.getLabel()));
-				batch--;
-			} else {
-				System.out.println("batch execution size " + batchStatement.size());
-				cassandraManager.execute(batchStatement);
-				batchStatement.clear();
-				batch = batchSize;
-			}
-
-		}
-		
-		public void close() {
-			if(batch < batchSize) {
-				cassandraManager.execute(batchStatement);
-			}
-		}
-	}*/
+    /**
+     * Put (or insert) a row
+     */
+    public static void addRecord(String tableName, String rowKey,
+            String family, String qualifier, String value) throws Exception {
+        try {
+            HTable table = new HTable(conf, tableName);
+            Put put = new Put(Bytes.toBytes(rowKey));
+            put.add(Bytes.toBytes(family), Bytes.toBytes(qualifier), Bytes
+                    .toBytes(value));
+            table.put(put);
+            System.out.println("insert recored " + rowKey + " to table "
+                    + tableName + " ok.");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
  }

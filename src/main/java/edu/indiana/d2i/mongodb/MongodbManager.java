@@ -17,17 +17,21 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
 public class MongodbManager {
-	private static final ServerAddress[] SHARDS = { new ServerAddress("crow.soic.indiana.edu", 27017),
-			new ServerAddress("pipit.soic.indiana.edu", 27017), new ServerAddress("vireo.soic.indiana.edu", 27017) };
+	private static ServerAddress[] SHARDS; //= { new ServerAddress("crow.soic.indiana.edu", 27017),
+			//new ServerAddress("pipit.soic.indiana.edu", 27017), new ServerAddress("vireo.soic.indiana.edu", 27017) };
 	private static final String DATA_BASE = "volumeContents";
 	public static final String VOLUME_COLLECTION = "volumeInfo0";
 	public static final String PAGE_COLLECTION = "pageInfo0";
 	
 	public static final String VOLUME_COLLECTION_2 = "volumeInfo1";
 	//private static final MongoClient MONGO_CLIENT; //new MongoClient(Arrays.asList(SHARDS));
-/*	static {
-		MONGO_CLIENT = new MongoClient(Arrays.asList(SHARDS));
-	}*/
+	static {
+		String[] mongoses = edu.indiana.d2i.tools.Configuration.getProperty("MONGOS_INSTANCES").split(",");
+		SHARDS = new ServerAddress[mongoses.length];
+		for(int i=0; i<SHARDS.length; i++) {
+			SHARDS[i] = new ServerAddress(mongoses[i], 27017);
+		}
+	}
 	public static final List<MongoClient> clients = new LinkedList<MongoClient>();
 	/*public static MongoClient getMongoClient() {
 		return MONGO_CLIENT;

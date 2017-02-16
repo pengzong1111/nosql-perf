@@ -78,6 +78,7 @@ public class CassandraVolumeRetriever extends Retriever {
 			select = QueryBuilder.select().column("volumeid")./*column("sequence").*/column("contents").column("bytecount").from(Configuration.getProperty("KEY_SPACE"), columnFamilyName).where(QueryBuilder.eq("volumeid", volumesToRetrieve.get(0)));
 		} else {
 			select = QueryBuilder.select().column("volumeid")/*.column("sequence")*/.column("contents").column("bytecount").from(Configuration.getProperty("KEY_SPACE"), columnFamilyName).where(QueryBuilder.in("volumeid", volumesToRetrieve));
+			select.setFetchSize(4000);
 		}
 	//	System.out.println(select.toString());
 		System.out.printf("start reading %d volumes \n", volumesToRetrieve.size());

@@ -53,7 +53,7 @@ public class PerfTestDriver {
 		
 		boolean running = true;
 		
-		long timeIntervalInSec = 4;
+		long timeIntervalInSec = Long.valueOf(Configuration.getProperty("TIME_INTERVAL"));
 		int i=0;
 		while(running) {
 			

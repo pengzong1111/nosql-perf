@@ -211,13 +211,13 @@ public class HBaseIngester {
 					}
 					//2. verify byte count of this page
 					if(pageContents.length != pageRecord.getByteCount() ) {
-						System.out.println("Actual byte count and byte count from METS mismatch for entry " + entryName + " for volume " + volumeId + ". Actual: " + pageContents.length + " from METS: " + pageRecord.getByteCount());
-						System.out.println("Recording actual byte count");
+				//		System.out.println("Actual byte count and byte count from METS mismatch for entry " + entryName + " for volume " + volumeId + ". Actual: " + pageContents.length + " from METS: " + pageRecord.getByteCount());
+				//		System.out.println("Recording actual byte count");
 						pageRecord.setByteCount(pageContents.length);
 						volumeByteCount += pageContents.length;
 					} else {
 						volumeByteCount += pageRecord.getByteCount();
-						System.out.println("verified page content for page " + entryFilename + " of " + volumeId);
+				//		System.out.println("verified page content for page " + entryFilename + " of " + volumeId);
 					}
 					//3. check against checksum of this page declared in METS
 					String checksum = pageRecord.getChecksum();
@@ -225,12 +225,12 @@ public class HBaseIngester {
 					try {
 						String calculatedChecksum = Tools.calculateChecksum(pageContents, checksumType);
 						if (!checksum.equals(calculatedChecksum)) {
-							System.out.println("Actual checksum and checksum from METS mismatch for entry " + entryName + " for volume: " + volumeId + ". Actual: " + calculatedChecksum
-									+ " from METS: " + checksum);
-							System.out.println("Recording actual checksum");
+					//		System.out.println("Actual checksum and checksum from METS mismatch for entry " + entryName + " for volume: " + volumeId + ". Actual: " + calculatedChecksum
+					//				+ " from METS: " + checksum);
+					//		System.out.println("Recording actual checksum");
 							pageRecord.setChecksum(calculatedChecksum, checksumType);
 						} else {
-							System.out.println("verified checksum for page " + entryFilename + " of " + volumeId);
+					//		System.out.println("verified checksum for page " + entryFilename + " of " + volumeId);
 						}
 					} catch (NoSuchAlgorithmException e) {
                         System.out.println("NoSuchAlgorithmException for checksum algorithm " + checksumType);
@@ -268,7 +268,7 @@ public class HBaseIngester {
                     	put.addColumn(Bytes.toBytes("pagenumberlabel"), Bytes.toBytes(pageRecord.getSequence()), Bytes
                                 .toBytes(pageRecord.getLabel()));
                     } catch (NullPointerException e) {
-                    	System.out.println("null pagenumberlabel");
+                    //	System.out.println("null pagenumberlabel");
                     }
                     
 					if(i == 0) {

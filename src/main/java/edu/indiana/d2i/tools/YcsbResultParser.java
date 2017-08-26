@@ -19,9 +19,9 @@ import java.util.Set;
 public class YcsbResultParser {
 
 	public static void main(String[] args) throws IOException {
-		File result1 = new File("/home/zong/failover-test/shard-failure/2-node-down/1");
-		File result2 = new File("/home/zong/failover-test/shard-failure/2-node-down/2");
-		File result3 = new File("/home/zong/failover-test/shard-failure/2-node-down/3");
+		File result1 = new File("/home/zong/failover-test/shard-failure/1");
+		File result2 = new File("/home/zong/failover-test/shard-failure/2");
+		File result3 = new File("/home/zong/failover-test/shard-failure/3");
 		
 		LinkedHashMap<String, String> map1 = parseYcsbResults(result1);
 		LinkedHashMap<String, String> map2 = parseYcsbResults(result2);
